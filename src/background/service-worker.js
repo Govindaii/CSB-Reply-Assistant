@@ -12,6 +12,8 @@ importScripts('../shared/defaults.js', '../shared/prompt.js', 'providers.js');
 
 const CSB = self.CSB;
 const STORAGE_KEY = 'csbSettings';
+const GENERATED_KEY = 'csbGenerated'; // { commentKey: timestamp }
+const GENERATED_MAX = 3000;
 
 // Keep API keys out of reach of content scripts, where Chrome supports it.
 try {
@@ -138,6 +140,32 @@ const HANDLERS = {
     } catch (err) {
       return { ok: false, error: errorPayload(err, apiKey), meta: { provider, model } };
     }
+  },
+
+  /**
+   * Remember that you generated replies for a comment (shows a ✓ on it).
+   * Stores only LinkedIn's comment ID or a short hash, never comment text.
+   */
+  async 'csb:markGenerated'(msg) {
+    const key = String(msg.key || '').slice(0, 200);
+    if (!key) return { ok: false };
+    const stored = (await chrome.storage.local.get(GENERATED_KEY))[GENERATED_KEY] || {};
+    stored[key] = Date.now();
+    const keys = Object.keys(stored);
+    if (keys.length > GENERATED_MAX) {
+      keys
+        .sort((a, b) => stored[a] - stored[b])
+        .slice(0, keys.length - GENERATED_MAX)
+        .forEach((k) => delete stored[k]);
+    }
+    await chrome.storage.local.set({ [GENERATED_KEY]: stored });
+    return { ok: true };
+  },
+
+  /** Which of these comment keys already have generated replies. */
+  async 'csb:getGenerated'(msg) {
+    const stored = (await chrome.storage.local.get(GENERATED_KEY))[GENERATED_KEY] || {};
+    return { ok: true, keys: (msg.keys || []).filter((k) => stored[k]) };
   },
 
   /** Lets the panel's "Open settings" button open the settings page. */

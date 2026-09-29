@@ -41,6 +41,8 @@
     slots: new WeakMap(), // comment element → our injected slot
     meta: new WeakMap(), // comment element → { version, eligible, reason, key }
     posts: new WeakMap(), // post element → { version, author, own }
+    generated: new Set(), // comment keys you've generated replies for (shows ✓)
+    askedGenerated: new Set(), // keys already looked up in storage
     lastUrl: location.href,
   };
 
@@ -252,6 +254,46 @@
     return slot;
   }
 
+  /** Show a ✓ next to ✦ Reply on comments you've already generated replies for. */
+  function updateCheck(slot, key) {
+    if (!slot) return;
+    const has = state.generated.has(key);
+    let check = slot.querySelector('.csb-ra-check');
+    if (has && !check) {
+      check = h('span', { class: 'csb-ra-check', title: 'You already generated replies for this comment', text: '✓' });
+      const btn = slot.querySelector('.csb-ra-btn');
+      if (btn) btn.after(check);
+      else slot.appendChild(check);
+    } else if (!has && check) check.remove();
+  }
+
+  /** Ask storage (once per comment) whether replies were generated before. */
+  let lookupTimer = null;
+  const pendingLookup = new Set();
+  function lookupGenerated(keys) {
+    const fresh = keys.filter((k) => k && !state.askedGenerated.has(k));
+    if (!fresh.length) return;
+    fresh.forEach((k) => {
+      state.askedGenerated.add(k);
+      pendingLookup.add(k);
+    });
+    clearTimeout(lookupTimer);
+    lookupTimer = setTimeout(async () => {
+      const batch = Array.from(pendingLookup);
+      pendingLookup.clear();
+      try {
+        const res = await ext.send({ type: 'csb:getGenerated', keys: batch });
+        if (res && res.ok) res.keys.forEach((k) => state.generated.add(k));
+      } catch (_) {
+        return;
+      }
+      for (const { el } of DOM.findComments(document)) {
+        const meta = state.meta.get(el);
+        if (meta && meta.eligible) updateCheck(state.slots.get(el), meta.key);
+      }
+    }, 100);
+  }
+
   function processComment(commentEl) {
     const meta = evaluate(commentEl);
     const mark = meta.eligible ? 'on' : 'skip';
@@ -262,7 +304,7 @@
       state.slots.delete(commentEl);
       return meta;
     }
-    if (!slot) injectSlot(commentEl, meta);
+    if (!slot) updateCheck(injectSlot(commentEl, meta), meta.key);
     return meta;
   }
 
@@ -272,7 +314,12 @@
       closePanel();
     }
     const found = DOM.findComments(document);
-    for (const f of found) processComment(f.el);
+    const keys = [];
+    for (const f of found) {
+      const meta = processComment(f.el);
+      if (meta.eligible) keys.push(meta.key);
+    }
+    lookupGenerated(keys);
     if (state.panel && !state.panel.commentEl.isConnected) closePanel();
     if (settings.debug) debugUpdate(found);
     return found;
@@ -707,7 +754,8 @@
     const e = err || {};
     const actions = [];
     if (e.kind !== 'reload') {
-      actions.push(h('button', { type: 'button', class: 'csb-ra-primary', text: 'Try again', onclick: () => generate('') }));
+      const again = () => generate((state.panel && state.panel.instruction) || '');
+      actions.push(h('button', { type: 'button', class: 'csb-ra-primary', text: 'Try again', onclick: again }));
     }
     if (SETTINGS_KINDS.includes(e.kind)) {
       actions.push(
@@ -738,6 +786,7 @@
     const p = state.panel;
     if (!p) return;
     const id = ++p.requestId;
+    p.instruction = instruction;
     const cached = state.cache.get(p.key);
     const previousReplies = cached ? cached.shown : [];
 
@@ -783,6 +832,9 @@
         instruction,
       };
       state.cache.set(p.key, entry);
+      state.generated.add(p.key);
+      updateCheck(state.slots.get(p.commentEl), p.key);
+      ext.send({ type: 'csb:markGenerated', key: p.key }).catch(() => {});
     }
 
     // Ignore answers that arrive after the panel was closed or regenerated.
@@ -1076,11 +1128,61 @@
     scan();
   }
 
+  // ───────────────────────── Reply queue (asked for by the popup) ─────────────────────────
+  // Lists comments already loaded on this page that don't have a reply from
+  // you yet. It never loads more comments and nothing leaves your browser.
+
+  function buildQueue() {
+    const items = [];
+    for (const { el } of DOM.findComments(document)) {
+      const meta = evaluate(el);
+      if (!meta.eligible) continue;
+      const top = topLevel(el);
+      const threadEls = [top, ...DOM.findComments(top).map((f) => f.el).filter((x) => x !== top)];
+      const after = threadEls.slice(threadEls.indexOf(el) + 1);
+      const replied = after.some((x) => isMe(DOM.getCommentAuthor(x).value));
+      const text = DOM.getCommentText(el).value.replace(/\s+/g, ' ');
+      items.push({
+        key: meta.key,
+        author: meta.author.value || 'Someone',
+        snippet: text.length > 120 ? `${text.slice(0, 119)}…` : text,
+        isReply: top !== el,
+        replied,
+        generated: state.generated.has(meta.key),
+      });
+    }
+    return items;
+  }
+
+  function focusComment(key) {
+    for (const { el } of DOM.findComments(document)) {
+      const meta = state.meta.get(el);
+      if (!meta || meta.key !== key) continue;
+      // You clicked "Show" in the queue, so bring that one comment into view.
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('csb-ra-flash');
+      void el.offsetWidth;
+      el.classList.add('csb-ra-flash');
+      setTimeout(() => el.classList.remove('csb-ra-flash'), 1800);
+      const btn = state.slots.get(el) && state.slots.get(el).querySelector('.csb-ra-btn');
+      if (btn) btn.focus({ preventScroll: true });
+      return true;
+    }
+    return false;
+  }
+
   ext.onMessage((msg) => {
     if (!msg || typeof msg.type !== 'string') return undefined;
     if (msg.type === 'csb:settingsChanged') {
       applySettings(msg.settings);
       return { ok: true };
+    }
+    if (msg.type === 'csb:getQueue') {
+      scan();
+      return { ok: true, items: buildQueue(), onlyMyPosts: settings.onlyMyPosts, profileNameSet: !!settings.profileName };
+    }
+    if (msg.type === 'csb:focusComment') {
+      return { ok: focusComment(msg.key) };
     }
     return undefined;
   });

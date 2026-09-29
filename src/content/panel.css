@@ -380,6 +380,21 @@
   margin-top: 8px;
 }
 
+/* Brief highlight when you pick a comment in the popup's Reply queue */
+.csb-ra-flash {
+  animation: csb-ra-flash 1.8s ease-out;
+}
+@keyframes csb-ra-flash {
+  0%,
+  40% {
+    box-shadow: 0 0 0 3px #0a66c2;
+    border-radius: 8px;
+  }
+  100% {
+    box-shadow: 0 0 0 3px rgba(10, 102, 194, 0);
+  }
+}
+
 /* ───────────────────────── Toast ───────────────────────── */
 
 .csb-ra-toast {

@@ -16,8 +16,8 @@
       label: 'Anthropic (Claude)',
       // Change it in settings any time. Check current IDs at the link below.
       defaultModel: 'claude-sonnet-5-5',
-      modelsUrl: 'https://docs.anthropic.com/en/docs/about-claude/models',
-      keysUrl: 'https://console.anthropic.com/settings/keys',
+      modelsUrl: 'https://platform.claude.com/docs/en/models/overview',
+      keysUrl: 'https://platform.claude.com/settings/keys',
       keyHint: 'Starts with sk-ant-',
     },
     gemini: {

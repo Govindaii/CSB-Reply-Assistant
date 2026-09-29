@@ -11,6 +11,7 @@
       <div class="brand"><span class="mark" aria-hidden="true">✦</span> CSB Reply Assistant</div>
       <nav class="tabs" role="tablist">
         <button class="tab is-active" role="tab" aria-selected="true" data-tab="settings" id="tab-btn-settings">Settings</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="queue" id="tab-btn-queue">Reply queue</button>
       </nav>
     </header>
 
@@ -102,6 +103,7 @@
           <label class="field">
             <span class="label">Your LinkedIn name <span class="muted">(exactly as shown on your profile)</span></span>
             <input id="profileName" type="text" autocomplete="off" />
+            <span class="help" id="profileHint">Used to find your own posts and your own replies.</span>
           </label>
 
           <label class="switch">
@@ -120,7 +122,21 @@
         <p class="footnote">
           <span id="saveStatus" class="save-status" aria-live="polite"></span>
           The extension never posts, likes or sends anything. You always click Post yourself.
+          <span id="version"></span>
         </p>
+      </section>
+
+      <section id="tab-queue" class="panel" role="tabpanel" aria-labelledby="tab-btn-queue" hidden>
+        <div class="queue-head">
+          <div>
+            <div class="label">Comments waiting for your reply</div>
+            <div class="help">From the LinkedIn tab open right now. Only comments already loaded on the page are listed; nothing is sent anywhere.</div>
+          </div>
+          <button type="button" class="btn btn-ghost" id="refreshQueue">Refresh</button>
+        </div>
+        <div id="queueStatus" class="result info" role="status" hidden></div>
+        <ul id="queueList" class="queue"></ul>
+        <p id="queueFoot" class="help"></p>
       </section>
     </main>
 

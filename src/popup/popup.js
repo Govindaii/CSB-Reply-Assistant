@@ -71,6 +71,16 @@
     $('profileName').value = settings.profileName;
     $('onlyMyPosts').checked = !!settings.onlyMyPosts;
     $('debug').checked = !!settings.debug;
+    updateProfileHint();
+  }
+
+  function updateProfileHint() {
+    const hint = $('profileHint');
+    const missing = settings.onlyMyPosts && !String(settings.profileName || '').trim();
+    hint.textContent = missing
+      ? 'Add your name, otherwise buttons show on every post.'
+      : 'Used to find your own posts and your own replies.';
+    hint.classList.toggle('warn-text', missing);
   }
 
   function bind() {
@@ -123,9 +133,14 @@
     for (const id of ['emojis', 'onlyMyPosts', 'debug']) {
       $(id).addEventListener('change', (e) => {
         settings[id] = e.target.checked;
+        updateProfileHint();
         scheduleSave();
       });
     }
+    $('profileName').addEventListener('input', updateProfileHint);
+
+    document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+    $('refreshQueue').addEventListener('click', loadQueue);
 
     $('testConnection').addEventListener('click', testConnection);
     $('trySample').addEventListener('click', trySample);
@@ -232,13 +247,104 @@
         renderSample(res.result, res.meta);
       } else {
         const err = (res && res.error) || {};
-        showResult('err', `✗ ${err.message || 'Generation failed.'}`, err.detail ? `Exact error: ${err.detail}` : '');
+        const message = String(err.message || 'Generation failed.').replace('Click Regenerate', 'Click “Try a sample comment”');
+        showResult('err', `✗ ${message}`, err.detail ? `Exact error: ${err.detail}` : '');
       }
     } catch (e) {
       showResult('err', '✗ Could not reach the extension background.', String(e && e.message));
     } finally {
       btn.disabled = false;
     }
+  }
+
+  // ───────────────────────── Tabs + Reply queue ─────────────────────────
+
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach((t) => {
+      const on = t.dataset.tab === name;
+      t.classList.toggle('is-active', on);
+      t.setAttribute('aria-selected', String(on));
+    });
+    $('tab-settings').hidden = name !== 'settings';
+    $('tab-queue').hidden = name !== 'queue';
+    if (name === 'queue') loadQueue();
+  }
+
+  function queueStatus(text) {
+    const box = $('queueStatus');
+    box.hidden = !text;
+    box.textContent = text || '';
+  }
+
+  async function loadQueue() {
+    const list = $('queueList');
+    list.textContent = '';
+    $('queueFoot').textContent = '';
+    queueStatus('Looking at the open LinkedIn tab…');
+
+    let tab = null;
+    try {
+      [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    } catch (_) {
+      tab = null;
+    }
+    if (!tab || !/^https:\/\/www\.linkedin\.com\//.test(tab.url || '')) {
+      queueStatus('Open one of your LinkedIn posts in the current tab, then open the Reply queue again.');
+      return;
+    }
+
+    let res = null;
+    try {
+      res = await chrome.tabs.sendMessage(tab.id, { type: 'csb:getQueue' });
+    } catch (_) {
+      res = null;
+    }
+    if (!res || !res.ok) {
+      queueStatus("The extension isn't running in that tab yet. Refresh the LinkedIn tab (F5) and try again.");
+      return;
+    }
+
+    const waiting = res.items.filter((i) => !i.replied);
+    const replied = res.items.length - waiting.length;
+    $('tab-btn-queue').textContent = 'Reply queue';
+    if (waiting.length) $('tab-btn-queue').appendChild(el('span', 'count', String(waiting.length)));
+
+    if (!res.items.length) {
+      queueStatus('No comments with a ✦ Reply button on this page. Open the comments under one of your posts.');
+      return;
+    }
+    queueStatus(waiting.length ? '' : 'All caught up: every loaded comment has a reply from you.');
+
+    for (const item of waiting) {
+      const li = el('li');
+      const main = el('div', 'q-main');
+      const who = el('div', 'q-author', item.author);
+      if (item.isReply) who.appendChild(el('span', 'q-tag', 'reply in thread'));
+      if (item.generated) who.appendChild(el('span', 'q-tag done', '✓ drafted'));
+      main.appendChild(who);
+      main.appendChild(el('div', 'q-snippet', item.snippet));
+      const show = el('button', 'btn btn-ghost', 'Show');
+      show.type = 'button';
+      show.title = 'Scroll to this comment on the page';
+      show.addEventListener('click', async () => {
+        try {
+          await chrome.tabs.sendMessage(tab.id, { type: 'csb:focusComment', key: item.key });
+          if (!document.body.classList.contains('is-tab')) window.close();
+        } catch (_) {
+          queueStatus('Could not reach the LinkedIn tab. Refresh it and try again.');
+        }
+      });
+      li.appendChild(main);
+      li.appendChild(show);
+      list.appendChild(li);
+    }
+    $('queueFoot').textContent = `${replied} already ${replied === 1 ? 'has' : 'have'} your reply. Load more comments on LinkedIn, then press Refresh.`;
+  }
+
+  try {
+    $('version').textContent = ` Version ${chrome.runtime.getManifest().version}.`;
+  } catch (_) {
+    /* not running as an extension */
   }
 
   bind();

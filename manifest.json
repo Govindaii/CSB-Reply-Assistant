@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CSB Reply Assistant",
   "short_name": "CSB Reply",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Drafts replies to comments on your LinkedIn posts in your voice. It never posts: you review and click Post yourself.",
   "minimum_chrome_version": "116",
   "icons": {
