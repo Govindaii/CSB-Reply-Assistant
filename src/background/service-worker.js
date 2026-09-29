@@ -157,6 +157,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true; // keep the channel open for the async answer
 });
 
+// Tell open LinkedIn tabs when settings change (e.g. Debug mode toggled),
+// so you don't have to refresh. Only public settings are sent, never keys.
+chrome.storage.onChanged.addListener(async (changes, area) => {
+  if (area !== 'local' || !changes[STORAGE_KEY]) return;
+  const settings = CSB.publicSettings(changes[STORAGE_KEY].newValue);
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({ url: 'https://www.linkedin.com/*' });
+  } catch (_) {
+    return;
+  }
+  for (const tab of tabs) {
+    chrome.tabs.sendMessage(tab.id, { type: 'csb:settingsChanged', settings }).catch(() => {});
+  }
+});
+
 // Fill in defaults on first install (keeps anything already saved).
 chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.local.get(STORAGE_KEY);

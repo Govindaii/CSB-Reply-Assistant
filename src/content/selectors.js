@@ -31,7 +31,7 @@
     commentAuthor: [
       { name: '.comments-comment-meta__description-title', css: '.comments-comment-meta__description-title' },
       { name: '.comments-post-meta__name-text [aria-hidden=true]', css: '.comments-post-meta__name-text [aria-hidden="true"]' },
-      { name: '.comments-post-meta__name-text', css: '.comments-post-meta__name-text' },
+      { name: '.comments-post-meta__name-text / [class*=description-title]', css: '.comments-post-meta__name-text, [class*="comment-meta__description-title"], [class*="post-meta__name"]' },
       { name: 'profile link [aria-hidden=true]', css: 'a[href*="/in/"] span[aria-hidden="true"], a[href*="/company/"] span[aria-hidden="true"]' },
       // Last resort (see getCommentAuthor): parse aria-label "Reply to <Name>’s comment".
     ],
@@ -77,7 +77,7 @@
 
     /** Post author's name (the "actor"). */
     postAuthor: [
-      { name: '.update-components-actor__title [aria-hidden=true]', css: '.update-components-actor__title span[aria-hidden="true"], .update-components-actor__name span[aria-hidden="true"]' },
+      { name: '.update-components-actor__title [aria-hidden=true]', css: '.update-components-actor__title span[aria-hidden="true"], .update-components-actor__name span[aria-hidden="true"], .update-components-actor__single-line-truncate span[aria-hidden="true"]' },
       { name: '.update-components-actor__name / __title', css: '.update-components-actor__name, .update-components-actor__title' },
       { name: '.feed-shared-actor__name', css: '.feed-shared-actor__name, .feed-shared-actor__title' },
       { name: '[class*=actor] profile link', css: '[class*="actor"] a[href*="/in/"] span[aria-hidden="true"], [class*="actor"] a[href*="/company/"] span[aria-hidden="true"]' },

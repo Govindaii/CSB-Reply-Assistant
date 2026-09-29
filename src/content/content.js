@@ -274,6 +274,7 @@
     const found = DOM.findComments(document);
     for (const f of found) processComment(f.el);
     if (state.panel && !state.panel.commentEl.isConnected) closePanel();
+    if (settings.debug) debugUpdate(found);
     return found;
   }
 
@@ -284,6 +285,197 @@
       scanTimer = null;
       scan();
     }, 250);
+  }
+
+  /** Nodes we add ourselves (buttons, panel, toasts, debug labels) don't need a rescan. */
+  function isOurNode(n) {
+    if (!n || n.nodeType !== 1) return n && n.nodeType === 3 && n.parentElement && isOurNode(n.parentElement);
+    if (n.id === 'csb-ra-panel') return true;
+    return Array.from(n.classList || []).some((c) => c.startsWith('csb-ra-'));
+  }
+
+  function onMutations(records) {
+    for (const r of records) {
+      for (const n of r.addedNodes) if (!isOurNode(n)) return scheduleScan();
+      // A removed ✦ button must come back, so that removal does need a rescan.
+      for (const n of r.removedNodes) {
+        if (!isOurNode(n) || (n.classList && n.classList.contains('csb-ra-slot'))) return scheduleScan();
+      }
+    }
+    return undefined;
+  }
+
+  // ───────────────────────── Debug mode ─────────────────────────
+  // Outlines every detected comment (purple = button shown, orange = skipped),
+  // labels which selector matched, logs a summary to the console and shows a
+  // small "Copy debug report" pill. Nothing here reads or logs comment text.
+
+  const dbg = { tags: new WeakMap(), outlined: new Set(), pill: null, lastSig: '', report: null };
+
+  function short(matched) {
+    return matched ? matched.split(' ')[0] : 'NOT FOUND';
+  }
+
+  function dlog(...args) {
+    if (settings.debug) console.log(LOG, ...args);
+  }
+
+  function debugDetails(el) {
+    return {
+      author: DOM.getCommentAuthor(el),
+      headline: DOM.getCommentHeadline(el).matched,
+      text: DOM.getCommentText(el).matched,
+      reply: DOM.findReplyButton(el).matched,
+      bar: DOM.findSocialBar(el).matched,
+    };
+  }
+
+  function debugTag(el, text, skipped) {
+    let tag = dbg.tags.get(el);
+    if (!tag || !tag.isConnected) {
+      tag = h('span', { class: 'csb-ra-debug-tag' });
+      const slot = state.slots.get(el);
+      if (slot && slot.isConnected) slot.appendChild(tag);
+      else {
+        const bar = DOM.findSocialBar(el).el;
+        if (bar) bar.appendChild(tag);
+        else el.insertBefore(tag, el.firstChild);
+      }
+      dbg.tags.set(el, tag);
+    }
+    tag.classList.toggle('csb-ra-debug-tag--skip', skipped);
+    tag.textContent = text;
+    tag.title = text;
+  }
+
+  function debugUpdate(found) {
+    const rows = [];
+    const selectorCounts = {};
+    const bump = (group, matched) => {
+      selectorCounts[group] = selectorCounts[group] || {};
+      const k = matched || 'NOT FOUND';
+      selectorCounts[group][k] = (selectorCounts[group][k] || 0) + 1;
+    };
+    const posts = new Map();
+    const problems = [];
+    const skippedReasons = {};
+
+    found.forEach((f, i) => {
+      const el = f.el;
+      const meta = state.meta.get(el) || evaluate(el);
+      const d = debugDetails(el);
+      bump('comment', f.matched);
+      bump('commentAuthor', d.author.matched);
+      bump('commentHeadline', d.headline);
+      bump('commentText', d.text);
+      bump('replyButton', d.reply);
+      bump('socialBar', d.bar);
+      if (!d.author.matched) problems.push(`comment ${i + 1}: author NOT FOUND`);
+      if (!d.text) problems.push(`comment ${i + 1}: text NOT FOUND`);
+      if (!d.reply) problems.push(`comment ${i + 1}: LinkedIn Reply button NOT FOUND (Use will fall back to Copy)`);
+      if (!meta.eligible) skippedReasons[meta.reason] = (skippedReasons[meta.reason] || 0) + 1;
+
+      const postEl = meta.post && meta.post.el;
+      if (postEl && !posts.has(postEl)) {
+        posts.set(postEl, {
+          selector: meta.post.matched,
+          authorSelector: meta.pInfo.matched || 'NOT FOUND',
+          author: meta.pInfo.author,
+          yours: meta.pInfo.own,
+          textSelector: DOM.getPostText(postEl).matched || 'NOT FOUND',
+        });
+      }
+
+      el.classList.add('csb-ra-debug-outline');
+      el.classList.toggle('csb-ra-debug-skip', !meta.eligible);
+      dbg.outlined.add(el);
+      const label =
+        `${short(f.matched)} · author ${short(d.author.matched).replace('commentAuthor', '')}` +
+        ` · text ${short(d.text).replace('commentText', '')} · reply ${short(d.reply).replace('replyButton', '')}` +
+        (meta.eligible ? '' : ` · skipped: ${meta.reason}`);
+      debugTag(el, label, !meta.eligible);
+
+      rows.push({
+        '#': i + 1,
+        author: d.author.value || '(not found)',
+        comment: f.matched,
+        authorSel: d.author.matched || 'NOT FOUND',
+        textSel: d.text || 'NOT FOUND',
+        replySel: d.reply || 'NOT FOUND',
+        button: meta.eligible ? 'shown' : `skipped (${meta.reason})`,
+      });
+    });
+
+    const loadMore = DOM.findLoadMore(document);
+    loadMore.forEach((l) => bump('loadMore', l.matched));
+    const shown = found.filter((f) => state.meta.get(f.el) && state.meta.get(f.el).eligible).length;
+    const postList = Array.from(posts.values());
+    posts.forEach((p) => bump('postAuthor', p.authorSelector === 'NOT FOUND' ? null : p.authorSelector));
+
+    const firstComment = found[0] && found[0].el;
+    const firstPost = posts.keys().next().value;
+    dbg.report = {
+      tool: 'CSB Reply Assistant debug report (contains no comment text or names)',
+      version: (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest && chrome.runtime.getManifest().version) || 'mock',
+      time: new Date().toISOString(),
+      page: location.hostname + location.pathname.replace(/\d{6,}/g, '…'),
+      browser: navigator.userAgent,
+      settings: { onlyMyPosts: settings.onlyMyPosts, profileNameSet: !!settings.profileName },
+      counts: { comments: found.length, buttonsShown: shown, skipped: found.length - shown, posts: posts.size, loadMoreButtons: loadMore.length },
+      skippedReasons: Object.fromEntries(Object.entries(skippedReasons).map(([k, v]) => [k.replace(/post by .+, not you/, 'post by someone else'), v])),
+      selectorsMatched: selectorCounts,
+      posts: postList.map((p) => ({ selector: p.selector, authorSelector: p.authorSelector, authorFound: !!p.author, yours: p.yours, textSelector: p.textSelector })),
+      problems: problems.slice(0, 30),
+      firstCommentStructure: firstComment ? DOM.skeleton(firstComment).join('\n') : null,
+      firstPostStructure: firstPost ? DOM.skeleton(firstPost, 0, 7).slice(0, 60).join('\n') : null,
+      pageStructure: found.length ? null : DOM.skeleton(document.querySelector('main') || document.body, 0, 8).slice(0, 150).join('\n'),
+    };
+
+    updatePill(found.length, shown, posts.size);
+
+    // Log only when something changed, so the console stays readable.
+    const sig = JSON.stringify([selectorCounts, skippedReasons, postList, problems.length]);
+    if (sig !== dbg.lastSig) {
+      dbg.lastSig = sig;
+      console.groupCollapsed(`${LOG} Debug: ${found.length} comments, ${shown} buttons, ${found.length - shown} skipped, ${posts.size} posts`);
+      console.log('Which selector matched (see src/content/selectors.js):', selectorCounts);
+      postList.forEach((p) =>
+        console.log(`Post via ${p.selector}: author "${p.author || 'NOT FOUND'}" via ${p.authorSelector} → ${p.yours ? 'yours' : 'not yours'}; text via ${p.textSelector}`)
+      );
+      if (Object.keys(skippedReasons).length) console.log('Skipped:', skippedReasons);
+      if (problems.length) console.warn(LOG, 'Problems:', problems);
+      if (loadMore.length) console.log(`"Load more" buttons on page: ${loadMore.length} (never clicked by the extension)`);
+      if (rows.length && console.table) console.table(rows);
+      if (!found.length) console.warn(LOG, 'No comments detected. Open the comments under a post, or click "Copy debug report" and send it over.');
+      console.groupEnd();
+    }
+  }
+
+  function updatePill(comments, shown, posts) {
+    if (!dbg.pill || !dbg.pill.isConnected) {
+      const copyBtn = h('button', { type: 'button', class: 'csb-ra-debug-copy', text: 'Copy debug report' });
+      copyBtn.addEventListener('click', async () => {
+        const ok = await copyText(JSON.stringify(dbg.report, null, 2));
+        copyBtn.textContent = ok ? 'Copied ✓' : 'Copy failed';
+        setTimeout(() => copyBtn.isConnected && (copyBtn.textContent = 'Copy debug report'), 1500);
+        if (ok) console.log(LOG, 'Debug report copied to clipboard:', dbg.report);
+      });
+      dbg.pill = h('div', { class: 'csb-ra-debug-pill', role: 'status' }, h('span', { class: 'csb-ra-debug-text' }), copyBtn);
+      document.body.appendChild(dbg.pill);
+    }
+    dbg.pill.querySelector('.csb-ra-debug-text').textContent = comments
+      ? `✦ CSB debug · ${comments} comments · ${shown} buttons · ${comments - shown} skipped · ${posts} posts`
+      : '✦ CSB debug · no comments detected yet';
+  }
+
+  function clearDebug() {
+    dbg.outlined.forEach((el) => el.classList.remove('csb-ra-debug-outline', 'csb-ra-debug-skip'));
+    dbg.outlined.clear();
+    document.querySelectorAll('.csb-ra-debug-tag').forEach((t) => t.remove());
+    if (dbg.pill) dbg.pill.remove();
+    dbg.pill = null;
+    dbg.lastSig = '';
+    dbg.tags = new WeakMap();
   }
 
   // ───────────────────────── Reading the clicked comment ─────────────────────────
@@ -558,6 +750,14 @@
       renderError({ kind: 'dom', message: "Couldn't read this comment from the page.", detail: String(err && err.message) });
       return;
     }
+    dlog('Reading clicked comment:', {
+      postAuthor: context.post.author || 'NOT FOUND',
+      postTextFound: !!context.post.text,
+      commentAuthor: context.comment.author || 'NOT FOUND',
+      commentTextFound: !!context.comment.text,
+      isReply: context.comment.isReply,
+      threadItems: context.thread.length,
+    });
     if (!context.comment.text) {
       renderError({
         kind: 'dom',
@@ -764,16 +964,20 @@
     }
 
     let editor = findOpenEditor(commentEl);
+    dlog('Use: reply box already open?', !!editor);
     if (!editor) {
-      const reply = DOM.findReplyButton(commentEl).el;
+      const reply = DOM.findReplyButton(commentEl);
+      dlog('Use: LinkedIn Reply button via', reply.matched || 'NOT FOUND');
       // Safety: only ever click LinkedIn's "Reply" action, never Post/Send.
-      if (reply && DOM.isSafeReplyAction(reply)) {
-        reply.click();
+      if (reply.el && DOM.isSafeReplyAction(reply.el)) {
+        reply.el.click();
         editor = await waitFor(() => focusedReplyEditor(commentEl), 3000);
       }
+      dlog('Use: reply box found after clicking Reply?', !!editor);
     }
 
     const done = editor ? insertIntoEditor(editor, text) : { ok: false };
+    dlog('Use: inserted?', done.ok, done.method ? `via ${done.method}` : '');
     if (done.ok) {
       closePanel();
       toast('✦ Reply inserted. Edit it if you like, then click Post yourself.');
@@ -862,8 +1066,13 @@
 
   function applySettings(next) {
     if (!next) return;
+    const prev = settings;
     settings = { ...settings, ...next };
+    const relevant = ['profileName', 'onlyMyPosts', 'debug'].some((k) => prev[k] !== settings[k]);
+    if (!relevant && settingsVersion > 0) return;
     settingsVersion += 1;
+    if (!settings.debug) clearDebug();
+    else dbg.lastSig = '';
     scan();
   }
 
@@ -883,8 +1092,23 @@
     } catch (err) {
       console.warn(LOG, 'Could not load settings:', bridgeError(err).message);
     }
+    if (settings.debug) console.log(LOG, 'Debug mode is on. Detected comments are outlined.');
     scan();
-    new MutationObserver(scheduleScan).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(onMutations).observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('popstate', scheduleScan);
+    // Pick up settings changed while this tab was in the background.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshSettings();
+    });
+  }
+
+  async function refreshSettings() {
+    try {
+      const res = await ext.send({ type: 'csb:getPublicSettings' });
+      if (res && res.ok) applySettings(res.settings);
+    } catch (_) {
+      /* extension reloaded; the ✦ button will say so when clicked */
+    }
   }
 
   if (document.body) start();
