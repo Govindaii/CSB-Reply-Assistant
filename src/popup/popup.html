@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CSB Reply Assistant</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand"><span class="mark" aria-hidden="true">✦</span> CSB Reply Assistant</div>
+      <nav class="tabs" role="tablist">
+        <button class="tab is-active" role="tab" aria-selected="true" data-tab="settings" id="tab-btn-settings">Settings</button>
+      </nav>
+    </header>
+
+    <main>
+      <section id="tab-settings" class="panel" role="tabpanel" aria-labelledby="tab-btn-settings">
+        <!-- ── AI provider ── -->
+        <fieldset>
+          <legend>AI provider</legend>
+
+          <label class="field">
+            <span class="label">Provider</span>
+            <select id="provider">
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="gemini">Google (Gemini)</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="label">API key <span class="muted" id="keyHint"></span></span>
+            <span class="row">
+              <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your API key" />
+              <button type="button" class="btn btn-ghost" id="toggleKey" aria-pressed="false">Show</button>
+            </span>
+            <span class="help">Saved only in this browser (chrome.storage.local). <a id="keysLink" href="#" target="_blank" rel="noopener">Get a key ↗</a></span>
+          </label>
+
+          <label class="field">
+            <span class="label">Model name</span>
+            <span class="row">
+              <input id="model" type="text" autocomplete="off" spellcheck="false" />
+              <button type="button" class="btn btn-ghost" id="resetModel" title="Reset to the default model">Default</button>
+            </span>
+            <span class="help">Model names change over time. <a id="modelsLink" href="#" target="_blank" rel="noopener">Check current model names ↗</a></span>
+          </label>
+
+          <div class="actions">
+            <button type="button" class="btn btn-primary" id="testConnection">Test connection</button>
+          </div>
+          <div id="testResult" class="result" role="status" aria-live="polite" hidden></div>
+        </fieldset>
+
+        <!-- ── Voice ── -->
+        <fieldset>
+          <legend>Your voice</legend>
+
+          <label class="field">
+            <span class="label">Voice profile</span>
+            <textarea id="voiceProfile" rows="6" spellcheck="true"></textarea>
+            <span class="help">The AI only uses facts about you from this box.</span>
+          </label>
+
+          <div class="grid-2">
+            <label class="field">
+              <span class="label">Default tone</span>
+              <select id="tone">
+                <option value="friendly">Friendly</option>
+                <option value="professional">Professional</option>
+                <option value="witty">Witty</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="label">Length</span>
+              <select id="length">
+                <option value="short">Short (1–2 sentences)</option>
+                <option value="medium">Medium (2–3 sentences)</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="switch">
+            <input type="checkbox" id="emojis" />
+            <span class="track" aria-hidden="true"></span>
+            <span>Allow emojis <span class="muted">(max one per reply)</span></span>
+          </label>
+
+          <label class="field">
+            <span class="label">Banned phrases <span class="muted">(one per line)</span></span>
+            <textarea id="bannedPhrases" rows="4" spellcheck="false"></textarea>
+          </label>
+        </fieldset>
+
+        <!-- ── LinkedIn ── -->
+        <fieldset>
+          <legend>On LinkedIn</legend>
+
+          <label class="field">
+            <span class="label">Your LinkedIn name <span class="muted">(exactly as shown on your profile)</span></span>
+            <input id="profileName" type="text" autocomplete="off" />
+          </label>
+
+          <label class="switch">
+            <input type="checkbox" id="onlyMyPosts" />
+            <span class="track" aria-hidden="true"></span>
+            <span>Only show buttons on my own posts</span>
+          </label>
+
+          <label class="switch">
+            <input type="checkbox" id="debug" />
+            <span class="track" aria-hidden="true"></span>
+            <span>Debug mode <span class="muted">(outlines detected comments, logs selectors)</span></span>
+          </label>
+        </fieldset>
+
+        <p class="footnote">
+          <span id="saveStatus" class="save-status" aria-live="polite"></span>
+          The extension never posts, likes or sends anything. You always click Post yourself.
+        </p>
+      </section>
+    </main>
+
+    <script src="../shared/defaults.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
