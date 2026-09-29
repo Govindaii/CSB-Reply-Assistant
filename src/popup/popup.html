@@ -49,8 +49,10 @@
 
           <div class="actions">
             <button type="button" class="btn btn-primary" id="testConnection">Test connection</button>
+            <button type="button" class="btn btn-secondary" id="trySample" title="Generate replies for a built-in example comment">Try a sample comment</button>
           </div>
           <div id="testResult" class="result" role="status" aria-live="polite" hidden></div>
+          <div id="sampleResult" class="sample" hidden></div>
         </fieldset>
 
         <!-- ── Voice ── -->
@@ -123,6 +125,7 @@
     </main>
 
     <script src="../shared/defaults.js"></script>
+    <script src="sample.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

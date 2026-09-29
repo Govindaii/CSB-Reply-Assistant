@@ -55,7 +55,7 @@
     $('model').placeholder = info.defaultModel;
     $('keyHint').textContent = `(${info.keyHint})`;
     $('keysLink').href = info.keysUrl;
-    $('keysLink').textContent = `Get a ${info.label} key ↗`;
+    $('keysLink').textContent = `Get your ${info.label} key ↗`;
     $('modelsLink').href = info.modelsUrl;
     hideResult();
   }
@@ -128,6 +128,7 @@
     }
 
     $('testConnection').addEventListener('click', testConnection);
+    $('trySample').addEventListener('click', trySample);
   }
 
   // ───────────────────────── Test connection ─────────────────────────
@@ -169,6 +170,69 @@
       } else {
         const err = (res && res.error) || {};
         showResult('err', `✗ ${err.message || 'Test failed.'}`, err.detail ? `Exact error: ${err.detail}` : '');
+      }
+    } catch (e) {
+      showResult('err', '✗ Could not reach the extension background.', String(e && e.message));
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ───────────────────────── Try a sample comment ─────────────────────────
+
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function renderSample(result, meta) {
+    const box = $('sampleResult');
+    box.hidden = false;
+    box.textContent = '';
+
+    const c = CSB.SAMPLE_CONTEXT.comment;
+    const quote = el('div', 'sample-comment');
+    quote.appendChild(el('strong', null, `${c.author}: `));
+    quote.appendChild(document.createTextNode(c.text));
+    box.appendChild(quote);
+
+    const head = el('div', 'sample-head');
+    head.appendChild(el('span', `badge badge-${result.category}`, result.category));
+    if (result.summary) head.appendChild(el('span', 'muted', result.summary));
+    box.appendChild(head);
+
+    const list = el('ol', 'sample-replies');
+    result.replies.forEach((r, i) => {
+      const li = el('li', null, r);
+      const warn = (result.warnings && result.warnings[i]) || [];
+      if (warn.length) li.appendChild(el('span', 'warn', ` ⚠ uses banned phrase: ${warn.join(', ')}`));
+      list.appendChild(li);
+    });
+    box.appendChild(list);
+
+    if (result.dm_draft) {
+      box.appendChild(el('div', 'label', 'Suggested DM'));
+      box.appendChild(el('div', 'sample-dm', result.dm_draft));
+    }
+    if (meta) box.appendChild(el('div', 'help', `${meta.model} · ${(meta.ms / 1000).toFixed(1)}s`));
+  }
+
+  async function trySample() {
+    const btn = $('trySample');
+    btn.disabled = true;
+    $('sampleResult').hidden = true;
+    await save(); // generate uses saved settings, so flush what you just typed
+    showResult('info', 'Writing replies for a sample lead comment…');
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'csb:generate', context: CSB.SAMPLE_CONTEXT });
+      if (res && res.ok) {
+        hideResult();
+        renderSample(res.result, res.meta);
+      } else {
+        const err = (res && res.error) || {};
+        showResult('err', `✗ ${err.message || 'Generation failed.'}`, err.detail ? `Exact error: ${err.detail}` : '');
       }
     } catch (e) {
       showResult('err', '✗ Could not reach the extension background.', String(e && e.message));

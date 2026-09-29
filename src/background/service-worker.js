@@ -5,10 +5,10 @@
  * LinkedIn) and the popup send it messages; it reads the API key from
  * chrome.storage.local, calls the provider, and sends back the result.
  *
- * It does nothing on its own: no timers, no alarms, no tab opening.
- * It only answers messages.
+ * It does nothing on its own: no alarms, no background jobs, no tab
+ * opening. It only answers messages.
  */
-importScripts('../shared/defaults.js', 'providers.js');
+importScripts('../shared/defaults.js', '../shared/prompt.js', 'providers.js');
 
 const CSB = self.CSB;
 const STORAGE_KEY = 'csbSettings';
@@ -44,6 +44,18 @@ function errorPayload(err, apiKey) {
   }
   if (err && err.kind) return { kind: err.kind, message: redact(err.message), detail: redact(err.detail || '') };
   return { kind: 'other', message: 'Something went wrong.', detail: redact(err && err.message) };
+}
+
+function emptyAnswerError(provider, finishReason) {
+  const name = CSB.providers.LABELS[provider];
+  const reason = String(finishReason || '');
+  if (/SAFETY|PROHIBITED|BLOCK|RECITATION|refusal|content_filter/i.test(reason)) {
+    return { kind: 'empty', message: `${name} returned no text. Its safety filter may have blocked this comment.`, detail: reason };
+  }
+  if (/max_tokens|length|MAX_TOKENS/.test(reason)) {
+    return { kind: 'empty', message: `${name} ran out of room before writing an answer. Click Regenerate to try again.`, detail: reason };
+  }
+  return { kind: 'empty', message: `${name} returned an empty answer. Click Regenerate to try again.`, detail: reason };
 }
 
 // ───────────────────────── Message handlers ─────────────────────────
@@ -83,6 +95,48 @@ const HANDLERS = {
       };
     } catch (err) {
       return { ok: false, error: errorPayload(err, apiKey) };
+    }
+  },
+
+  /**
+   * Generate reply options for one comment.
+   * msg.context = { post, comment, thread } read from the comment you clicked.
+   * msg.instruction = optional one-line instruction ("make it funnier").
+   * msg.previousReplies = options already shown, so Regenerate gives new ones.
+   */
+  async 'csb:generate'(msg) {
+    const settings = await loadSettings();
+    const provider = settings.provider;
+    const apiKey = settings.keys[provider];
+    const model = settings.models[provider];
+    const started = Date.now();
+    try {
+      const { system, user } = CSB.prompt.buildPrompt({
+        settings,
+        context: msg.context,
+        instruction: msg.instruction,
+        previousReplies: msg.previousReplies,
+      });
+      const out = await withKeepAlive(
+        CSB.providers.callProvider(provider, { apiKey, model, system, user, json: true })
+      );
+      if (!out.text) throw emptyAnswerError(provider, out.finishReason);
+
+      let result;
+      try {
+        result = CSB.prompt.parseReplyJson(out.text);
+      } catch (err) {
+        if (/max_tokens|length|MAX_TOKENS/.test(out.finishReason)) {
+          err.message = 'The AI ran out of room before finishing its answer. Click Regenerate to try again.';
+        }
+        throw err;
+      }
+
+      const banned = CSB.prompt.bannedList(settings);
+      result.warnings = result.replies.map((r) => CSB.prompt.findBannedPhrases(r, banned));
+      return { ok: true, result, meta: { provider, model, ms: Date.now() - started } };
+    } catch (err) {
+      return { ok: false, error: errorPayload(err, apiKey), meta: { provider, model } };
     }
   },
 

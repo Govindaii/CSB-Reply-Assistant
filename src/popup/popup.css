@@ -341,3 +341,60 @@ button:focus-visible {
   font-weight: 600;
   min-height: 16px;
 }
+
+/* Sample comment result */
+.sample {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  font-size: 13px;
+}
+.sample-comment {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.sample-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.sample-replies {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+.sample-replies li {
+  margin-bottom: 6px;
+}
+.sample-dm {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 4px 0 8px;
+}
+.warn {
+  color: var(--err);
+  font-size: 12px;
+}
+.badge {
+  display: inline-block;
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #e8e8e8;
+  color: #333;
+}
+.badge-lead { background: #dff3e4; color: #0b6b35; }
+.badge-question { background: #dcebfb; color: #0a4f96; }
+.badge-compliment { background: #fbe3ef; color: #9b1d5a; }
+.badge-hiring { background: #ece3fb; color: #5b2aa8; }
+.badge-collab { background: #d9f3f1; color: #0d6b64; }
+.badge-disagreement { background: #fdebd8; color: #9a4a00; }
+.badge-spam { background: #ececec; color: #555; }
+.badge-other { background: #ececec; color: #444; }
