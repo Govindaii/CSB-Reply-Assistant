@@ -65,6 +65,24 @@
     return (phrases || []).filter((p) => p && t.includes(String(p).toLowerCase()));
   }
 
+  /**
+   * Long threads: always keep the first comment and the one being replied
+   * to, then the replies closest to it (earlier ones first).
+   */
+  function trimThread(thread, max) {
+    if (thread.length <= max) return thread;
+    const t = thread.findIndex((x) => x && x.isTarget);
+    if (t < 0) return [thread[0], ...thread.slice(-(max - 1))];
+    const keep = new Set([0, t]);
+    let lo = t - 1;
+    let hi = t + 1;
+    while (keep.size < max && (lo > 0 || hi < thread.length)) {
+      if (lo > 0) keep.add(lo--);
+      if (keep.size < max && hi < thread.length) keep.add(hi++);
+    }
+    return thread.filter((_, i) => keep.has(i));
+  }
+
   // ───────────────────────── system prompt ─────────────────────────
 
   function buildSystemPrompt(settings) {
@@ -149,7 +167,7 @@
     lines.push('</post>', '');
 
     // Earlier comments/replies in the same thread, so the AI sees the conversation.
-    const items = thread.slice(-LIMITS.threadItems);
+    const items = trimThread(thread, LIMITS.threadItems);
     if (items.length > 1 || (items.length === 1 && !items[0].isTarget)) {
       lines.push('<thread>');
       lines.push('The comment thread so far, oldest first:');
@@ -318,6 +336,7 @@
     buildPrompt,
     buildSystemPrompt,
     buildUserPrompt,
+    trimThread,
     parseReplyJson,
     extractObject,
     findBannedPhrases,

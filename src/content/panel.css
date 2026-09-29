@@ -1,0 +1,452 @@
+/*
+ * CSB Reply Assistant: styles for the ✦ Reply button, the floating panel,
+ * toasts and debug outlines.
+ *
+ * Every rule is scoped to #csb-ra-panel or a .csb-ra-* class, so nothing
+ * here can change how LinkedIn itself looks.
+ */
+
+/* ───────────────────────── ✦ Reply button (inside LinkedIn's action row) ───────────────────────── */
+
+.csb-ra-slot {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.csb-ra-slot .csb-ra-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font: 600 14px/20px -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: inherit;
+  opacity: 0.85;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.csb-ra-slot .csb-ra-btn:hover {
+  opacity: 1;
+  background: rgba(127, 127, 127, 0.16);
+}
+.csb-ra-slot .csb-ra-btn:focus-visible {
+  outline: 2px solid #0a66c2;
+  outline-offset: 1px;
+}
+.csb-ra-slot .csb-ra-btn[aria-expanded='true'] {
+  opacity: 1;
+  background: rgba(127, 127, 127, 0.2);
+}
+.csb-ra-slot .csb-ra-star {
+  font-size: 12px;
+}
+.csb-ra-slot .csb-ra-check {
+  font: 700 12px/1 -apple-system, system-ui, sans-serif;
+  color: #057642;
+  padding: 2px 4px;
+  border-radius: 999px;
+  background: rgba(5, 118, 66, 0.12);
+}
+
+/* Fallback placement when there's no action row: a small line under the comment. */
+.csb-ra-slot.csb-ra-slot--block {
+  display: flex !important;
+  margin: 4px 0 0 0;
+}
+
+/* ───────────────────────── Panel ───────────────────────── */
+
+#csb-ra-panel {
+  --csb-bg: #ffffff;
+  --csb-card: #f7f7f5;
+  --csb-text: rgba(0, 0, 0, 0.9);
+  --csb-muted: rgba(0, 0, 0, 0.6);
+  --csb-border: rgba(0, 0, 0, 0.12);
+  --csb-accent: #0a66c2;
+  --csb-accent-hover: #004182;
+  --csb-accent-text: #ffffff;
+  --csb-err: #b24020;
+  --csb-err-bg: #fdecea;
+  --csb-ok: #057642;
+  --csb-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 8px 28px rgba(0, 0, 0, 0.18);
+
+  position: fixed;
+  z-index: 2147483000;
+  top: 0;
+  left: 0;
+  width: 400px;
+  max-width: calc(100vw - 16px);
+  max-height: min(600px, calc(100vh - 16px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--csb-bg);
+  color: var(--csb-text);
+  border-radius: 12px;
+  box-shadow: var(--csb-shadow);
+  font: 400 14px/1.45 -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  text-align: left;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+#csb-ra-panel:focus {
+  outline: none;
+}
+
+#csb-ra-panel[data-theme='dark'] {
+  --csb-bg: #1b1f23;
+  --csb-card: #262b31;
+  --csb-text: rgba(255, 255, 255, 0.9);
+  --csb-muted: rgba(255, 255, 255, 0.62);
+  --csb-border: rgba(255, 255, 255, 0.14);
+  --csb-accent: #71b7fb;
+  --csb-accent-hover: #a8d4ff;
+  --csb-accent-text: #000000;
+  --csb-err: #f5987e;
+  --csb-err-bg: rgba(245, 152, 126, 0.14);
+  --csb-ok: #7fc15e;
+  --csb-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 8px 28px rgba(0, 0, 0, 0.6);
+}
+
+#csb-ra-panel *,
+#csb-ra-panel *::before,
+#csb-ra-panel *::after {
+  box-sizing: border-box;
+  font-family: inherit;
+  letter-spacing: normal;
+}
+
+#csb-ra-panel button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  font: 600 13px/18px -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  border-radius: 999px;
+  padding: 5px 12px;
+  white-space: nowrap;
+  text-align: center;
+}
+#csb-ra-panel button:focus-visible,
+#csb-ra-panel input:focus-visible {
+  outline: 2px solid var(--csb-accent);
+  outline-offset: 1px;
+}
+#csb-ra-panel button[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#csb-ra-panel .csb-ra-primary {
+  background: var(--csb-accent);
+  color: var(--csb-accent-text);
+}
+#csb-ra-panel .csb-ra-primary:hover:not([disabled]) {
+  background: var(--csb-accent-hover);
+}
+#csb-ra-panel .csb-ra-ghost {
+  color: var(--csb-muted);
+  box-shadow: inset 0 0 0 1px var(--csb-border);
+}
+#csb-ra-panel .csb-ra-ghost:hover:not([disabled]) {
+  color: var(--csb-text);
+  background: rgba(127, 127, 127, 0.12);
+}
+
+/* Header */
+#csb-ra-panel .csb-ra-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 8px 14px;
+  background: var(--csb-bg);
+  border-bottom: 1px solid var(--csb-border);
+}
+#csb-ra-panel .csb-ra-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: #111;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+}
+#csb-ra-panel[data-theme='dark'] .csb-ra-mark {
+  background: #fff;
+  color: #111;
+}
+#csb-ra-panel .csb-ra-title {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+#csb-ra-panel .csb-ra-spacer {
+  flex: 1;
+}
+#csb-ra-panel .csb-ra-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--csb-muted);
+}
+#csb-ra-panel .csb-ra-close:hover {
+  background: rgba(127, 127, 127, 0.16);
+  color: var(--csb-text);
+}
+
+/* Category badge */
+#csb-ra-panel .csb-ra-badge {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #ececec;
+  color: #444;
+}
+#csb-ra-panel .csb-ra-badge--lead { background: #dff3e4; color: #0b6b35; }
+#csb-ra-panel .csb-ra-badge--question { background: #dcebfb; color: #0a4f96; }
+#csb-ra-panel .csb-ra-badge--compliment { background: #fbe3ef; color: #9b1d5a; }
+#csb-ra-panel .csb-ra-badge--hiring { background: #ece3fb; color: #5b2aa8; }
+#csb-ra-panel .csb-ra-badge--collab { background: #d9f3f1; color: #0d6b64; }
+#csb-ra-panel .csb-ra-badge--disagreement { background: #fdebd8; color: #9a4a00; }
+#csb-ra-panel .csb-ra-badge--spam { background: #ececec; color: #555; }
+
+/* Body */
+#csb-ra-panel .csb-ra-body {
+  padding: 10px 14px 12px;
+}
+#csb-ra-panel .csb-ra-for {
+  color: var(--csb-muted);
+  font-size: 12px;
+  margin: 0 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#csb-ra-panel .csb-ra-summary {
+  color: var(--csb-muted);
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+#csb-ra-panel .csb-ra-card {
+  background: var(--csb-card);
+  border: 1px solid var(--csb-border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin: 0 0 8px;
+}
+#csb-ra-panel .csb-ra-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--csb-muted);
+  margin: 0 0 2px;
+}
+#csb-ra-panel .csb-ra-card-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+#csb-ra-panel .csb-ra-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+#csb-ra-panel .csb-ra-card--note {
+  border-style: dashed;
+}
+#csb-ra-panel .csb-ra-warn {
+  color: var(--csb-err);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+/* DM section */
+#csb-ra-panel .csb-ra-section {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--csb-border);
+}
+#csb-ra-panel .csb-ra-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Regenerate row */
+#csb-ra-panel .csb-ra-regen {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+#csb-ra-panel .csb-ra-input {
+  all: unset;
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  font: 400 13px/18px -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--csb-text);
+  background: var(--csb-bg);
+  border: 1px solid var(--csb-border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: text;
+}
+#csb-ra-panel .csb-ra-input::placeholder {
+  color: var(--csb-muted);
+}
+
+#csb-ra-panel .csb-ra-foot {
+  margin: 10px 0 0;
+  color: var(--csb-muted);
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Loading */
+#csb-ra-panel .csb-ra-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 4px;
+  color: var(--csb-muted);
+}
+#csb-ra-panel .csb-ra-spinner {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--csb-border);
+  border-top-color: var(--csb-accent);
+  animation: csb-ra-spin 0.8s linear infinite;
+}
+@keyframes csb-ra-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error */
+#csb-ra-panel .csb-ra-error {
+  background: var(--csb-err-bg);
+  color: var(--csb-err);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+#csb-ra-panel .csb-ra-error-title {
+  font-weight: 600;
+  margin: 0;
+}
+#csb-ra-panel .csb-ra-error-detail {
+  margin: 6px 0 0;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--csb-text);
+  opacity: 0.8;
+  word-break: break-word;
+}
+#csb-ra-panel .csb-ra-error-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* ───────────────────────── Toast ───────────────────────── */
+
+.csb-ra-toast {
+  position: fixed;
+  z-index: 2147483001;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  max-width: min(460px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #1d2226;
+  color: #fff;
+  font: 500 14px/1.4 -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+.csb-ra-toast--warn {
+  background: #8a3a12;
+}
+
+/* ───────────────────────── Debug mode ───────────────────────── */
+
+.csb-ra-debug-outline {
+  outline: 2px dashed #8b5cf6 !important;
+  outline-offset: 2px;
+}
+.csb-ra-debug-outline.csb-ra-debug-skip {
+  outline-color: #f59e0b !important;
+}
+.csb-ra-debug-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #8b5cf6;
+  color: #fff;
+  font: 11px/16px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.csb-ra-debug-tag.csb-ra-debug-tag--skip {
+  background: #b45309;
+}
+.csb-ra-debug-pill {
+  position: fixed;
+  z-index: 2147482999;
+  left: 12px;
+  bottom: 12px;
+  max-width: min(520px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #2e1065;
+  color: #fff;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}
+.csb-ra-debug-pill .csb-ra-debug-copy {
+  all: unset;
+  cursor: pointer;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff;
+  color: #2e1065;
+  font: 600 11px/16px -apple-system, system-ui, sans-serif;
+}

@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en" class="theme theme--light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mock LinkedIn post · CSB Reply Assistant test page</title>
+    <!--
+      A fake LinkedIn post page for testing the extension WITHOUT logging in.
+      Open this file directly in Chrome (double-click it, or drag it into a tab).
+      It loads the real content script + styles from ../src and a fake
+      extension bridge (mock-extension.js) that returns canned replies.
+      The markup copies LinkedIn's real class names / data attributes so the
+      same selectors are exercised.
+    -->
+    <link rel="stylesheet" href="../src/content/panel.css" />
+    <style>
+      :root {
+        --bg: #f4f2ee;
+        --card: #ffffff;
+        --text: rgba(0, 0, 0, 0.9);
+        --muted: rgba(0, 0, 0, 0.6);
+        --border: rgba(0, 0, 0, 0.12);
+        --blue: #0a66c2;
+      }
+      html.theme--dark {
+        --bg: #000000;
+        --card: #1b1f23;
+        --text: rgba(255, 255, 255, 0.9);
+        --muted: rgba(255, 255, 255, 0.6);
+        --border: rgba(255, 255, 255, 0.15);
+        --blue: #71b7fb;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.42 -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      }
+      .mock-nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        height: 52px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 24px;
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+      }
+      .mock-logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 4px;
+        background: var(--blue);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+      }
+      .mock-note {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      main {
+        max-width: 580px;
+        margin: 24px auto 120px;
+        padding: 0 12px;
+      }
+      .feed-shared-update-v2 {
+        background: var(--card);
+        border-radius: 8px;
+        box-shadow: 0 0 0 1px var(--border);
+        margin-bottom: 16px;
+        padding: 12px 16px 8px;
+      }
+      .update-components-actor {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .update-components-actor__meta-link {
+        color: inherit;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+      }
+      .update-components-actor__title {
+        font-weight: 600;
+      }
+      .update-components-actor__description,
+      .comments-comment-meta__description-subtitle,
+      .comments-post-meta__headline,
+      .mock-muted,
+      time {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .visually-hidden {
+        position: absolute !important;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+      }
+      .mock-avatar {
+        flex: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+        background: #6b7280;
+      }
+      .mock-avatar--sm {
+        width: 32px;
+        height: 32px;
+        font-size: 11px;
+      }
+      .update-components-text {
+        white-space: pre-wrap;
+      }
+      .mock-post-actions {
+        display: flex;
+        justify-content: space-around;
+        border-top: 1px solid var(--border);
+        margin-top: 10px;
+        padding-top: 4px;
+      }
+      .mock-post-actions button,
+      .comments-comment-social-bar--cr button,
+      .comments-comment-social-bar button {
+        background: none;
+        border: 0;
+        font: 600 14px/20px inherit;
+        font-family: inherit;
+        color: var(--muted);
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .mock-post-actions button:hover,
+      .comments-comment-social-bar--cr button:hover,
+      .comments-comment-social-bar button:hover {
+        background: rgba(127, 127, 127, 0.14);
+      }
+      .comments-comments-list {
+        margin-top: 8px;
+      }
+      article.comments-comment-entity,
+      article.comments-comment-item {
+        position: relative;
+        margin: 10px 0;
+        padding-left: 48px;
+      }
+      article .mock-avatar {
+        position: absolute;
+        left: 0;
+        top: 0;
+      }
+      .comments-replies-list article {
+        padding-left: 40px;
+      }
+      .comments-comment-meta__container,
+      .comments-post-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .mock-bubble {
+        background: rgba(127, 127, 127, 0.1);
+        border-radius: 0 8px 8px 8px;
+        padding: 8px 12px;
+      }
+      .comments-comment-meta__description,
+      .comments-post-meta__profile-link {
+        color: inherit;
+        text-decoration: none;
+      }
+      .comments-comment-meta__description-title,
+      .comments-post-meta__name-text {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0;
+        display: block;
+      }
+      .mock-author-badge {
+        font-size: 11px;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: rgba(127, 127, 127, 0.2);
+        margin-left: 4px;
+        font-weight: 400;
+      }
+      .comments-comment-item__main-content {
+        display: block;
+        margin-top: 6px;
+      }
+      .comments-comment-social-bar--cr,
+      .comments-comment-social-bar {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        margin-top: 2px;
+      }
+      .comments-replies-list {
+        margin-top: 4px;
+      }
+      .comments-comment-box {
+        margin: 8px 0;
+      }
+      .comments-comment-box__form {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .ql-editor {
+        min-height: 40px;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: var(--card);
+        outline: none;
+      }
+      .ql-editor:focus {
+        border-color: var(--blue);
+      }
+      .ql-editor p {
+        margin: 0;
+      }
+      .ql-editor.ql-blank::before {
+        content: attr(data-placeholder);
+        color: var(--muted);
+        position: absolute;
+        pointer-events: none;
+      }
+      .ql-mention {
+        color: var(--blue);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .mock-form-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .mock-registered {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .comments-comment-box__submit-button--cr {
+        border: 0;
+        border-radius: 16px;
+        padding: 4px 14px;
+        font: inherit;
+        font-weight: 600;
+        background: var(--blue);
+        color: #fff;
+        cursor: pointer;
+      }
+      .comments-comment-box__submit-button--cr:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .comments-comments-list__load-more-comments-button {
+        background: none;
+        border: 0;
+        font: inherit;
+        font-weight: 600;
+        color: var(--muted);
+        padding: 6px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-bottom: 6px;
+      }
+      /* Mock controls (not part of LinkedIn) */
+      .mock-controls {
+        position: fixed;
+        right: 12px;
+        top: 64px;
+        width: 290px;
+        z-index: 20;
+        background: #fffbe6;
+        color: #3d3200;
+        border: 1px solid #e6d58a;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+      }
+      .mock-controls h2 {
+        font-size: 13px;
+        margin: 0 0 4px;
+      }
+      .mock-controls label {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin: 5px 0;
+      }
+      .mock-controls select,
+      .mock-controls input[type='text'] {
+        flex: 1;
+        min-width: 0;
+        font: inherit;
+      }
+      .mock-controls pre {
+        max-height: 220px;
+        overflow: auto;
+        white-space: pre-wrap;
+        background: #fff;
+        border: 1px solid #e6d58a;
+        padding: 6px;
+        font-size: 11px;
+      }
+      .mock-controls .mock-counters {
+        margin-top: 6px;
+        color: #6b5d00;
+      }
+      @media (max-width: 1000px) {
+        .mock-controls {
+          position: static;
+          width: auto;
+          margin: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="mock-nav">
+      <div class="mock-logo">in</div>
+      <strong>Mock LinkedIn</strong>
+      <span class="mock-note">Test page for CSB Reply Assistant. Nothing here is real.</span>
+    </header>
+
+    <aside class="mock-controls" aria-label="Mock controls">
+      <h2>Mock controls <span style="font-weight: 400">(not part of LinkedIn)</span></h2>
+      <div>Replies here are canned. No AI is called and no key is needed.</div>
+      <label>AI answer
+        <select id="mock-mode">
+          <option value="success">Success</option>
+          <option value="slow">Success, but slow (3s)</option>
+          <option value="missing_key">Error: missing API key</option>
+          <option value="model">Error: wrong model name</option>
+          <option value="rate_limit">Error: rate limit</option>
+          <option value="network">Error: network failure</option>
+          <option value="bad_json">Error: AI returned bad JSON</option>
+        </select>
+      </label>
+      <label>Your name <input id="mock-profile" type="text" value="Shahran Ahmed" /></label>
+      <label><input id="mock-only-mine" type="checkbox" checked /> Only show buttons on my own posts</label>
+      <label><input id="mock-debug" type="checkbox" /> Debug mode</label>
+      <label><input id="mock-dark" type="checkbox" /> Dark mode</label>
+      <div class="mock-counters">
+        Post/Reply submits: <b id="mock-submits">0</b> · Likes: <b id="mock-likes">0</b>
+        <br />(These must stay 0 unless YOU click them.)
+      </div>
+      <details>
+        <summary>Last prompt that would be sent to the AI</summary>
+        <pre id="mock-prompt">(click ✦ Reply on a comment)</pre>
+      </details>
+    </aside>
+
+    <main id="feed">
+      <!-- ───────────── Post 1: your own post ───────────── -->
+      <div class="feed-shared-update-v2" data-urn="urn:li:activity:7300000000000000001" role="article">
+        <div class="update-components-actor">
+          <span class="mock-avatar" style="background: #111">SA</span>
+          <a class="update-components-actor__meta-link" href="https://www.linkedin.com/in/demo-shahran/">
+            <span class="update-components-actor__title"
+              ><span dir="ltr"><span aria-hidden="true">Shahran Ahmed</span><span class="visually-hidden">Shahran Ahmed</span></span>
+              <span class="mock-muted">• You</span></span
+            >
+            <span class="update-components-actor__description">Co-Founder &amp; Creative Director, Create Something Beyond</span>
+          </a>
+        </div>
+        <div class="feed-shared-update-v2__description">
+          <div class="update-components-text update-components-update-v2__commentary"><span dir="ltr">We just wrapped a 60-second AI film for a heritage tea brand.
+
+The tools got us 70% of the way in a week. The last 30% (the pause before the pour, the grain on the hands, the edit that lets it breathe) was all direction.
+
+Tools are getting cheaper. Taste is not.</span></div>
+        </div>
+        <div class="mock-post-actions">
+          <button type="button" class="mock-like-post">Like</button>
+          <button type="button">Comment</button>
+          <button type="button">Repost</button>
+          <button type="button">Send</button>
+        </div>
+        <div class="feed-shared-update-v2__comments-container">
+          <div class="comments-comment-box comments-comment-box--cr">
+            <form class="comments-comment-box__form">
+              <div class="comments-comment-texteditor">
+                <div class="ql-editor ql-blank" contenteditable="true" role="textbox" aria-label="Text editor for creating content" data-placeholder="Add a comment…"><p><br /></p></div>
+              </div>
+            </form>
+          </div>
+          <div class="comments-comments-list" id="comments-1"></div>
+          <button type="button" class="comments-comments-list__load-more-comments-button artdeco-button" id="load-more-1">Load more comments</button>
+        </div>
+      </div>
+
+      <!-- ───────────── Post 2: someone else's post (no buttons when "only my posts" is on) ───────────── -->
+      <div class="feed-shared-update-v2" data-urn="urn:li:activity:7300000000000000002" role="article">
+        <div class="update-components-actor">
+          <span class="mock-avatar" style="background: #0e7490">AK</span>
+          <a class="update-components-actor__meta-link" href="https://www.linkedin.com/in/demo-aarav/">
+            <span class="update-components-actor__title"
+              ><span dir="ltr"><span aria-hidden="true">Aarav Kapoor</span><span class="visually-hidden">Aarav Kapoor</span></span></span
+            >
+            <span class="update-components-actor__description">Product Designer</span>
+          </a>
+        </div>
+        <div class="feed-shared-update-v2__description">
+          <div class="update-components-text update-components-update-v2__commentary"><span dir="ltr">Hot take: most design systems are over-engineered.</span></div>
+        </div>
+        <div class="feed-shared-update-v2__comments-container">
+          <div class="comments-comments-list" id="comments-2"></div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      /* ───────────── Mock LinkedIn behaviour (NOT part of the extension) ───────────── */
+      (function () {
+        const COMMENTS_1 = [
+          {
+            id: '101', name: 'Priya Nair', initials: 'PN', color: '#be185d', headline: 'Head of Marketing at Glow Labs', time: '2h',
+            text: 'This is stunning, the pause before the pour got me. We have a product launch in March and want something with this feel. What would a 30-second film like this roughly cost?',
+          },
+          {
+            id: '102', name: 'Rahul Mehta', initials: 'RM', color: '#7c3aed', headline: 'Founder, Chai & Co', time: '3h',
+            text: 'Bhai ye toh next level hai! Kitna time laga iss film ko banane mein?',
+            replies: [
+              { id: '201', name: 'Shahran Ahmed', initials: 'SA', color: '#111', headline: 'Co-Founder & Creative Director, Create Something Beyond', time: '2h', author: true,
+                text: 'Thanks Rahul! About a week for the base, then a lot of time in the edit.' },
+              { id: '202', name: 'Rahul Mehta', initials: 'RM', color: '#7c3aed', headline: 'Founder, Chai & Co', time: '1h',
+                text: 'Accha! Aur tools kaunse use kiye? Humein bhi apne brand ke liye kuch aisa chahiye.' },
+            ],
+          },
+          {
+            id: '103', name: 'Anita Desai', initials: 'AD', color: '#b45309', headline: 'Creative Director, independent', time: '4h',
+            text: "Respectfully, calling a studio 'AI-native' undersells the humans doing the actual work. The taste you describe is human.",
+          },
+          {
+            // Older LinkedIn layout: no data-id, older class names. Tests the fallbacks.
+            legacy: true, name: 'Growth Guru 🚀', initials: 'GG', color: '#4b5563', headline: 'I help brands 10x their followers', time: '5h',
+            text: 'Nice post!! I help brands 10x followers in 30 days. Check my profile 🔥🔥',
+          },
+        ];
+        const MORE_1 = [
+          { id: '104', name: 'Karan Shah', initials: 'KS', color: '#15803d', headline: 'Film student at NID', time: '6h',
+            text: 'Are you hiring interns this summer? I would love to learn how you direct AI films.' },
+          { id: '105', name: 'Meera Iyer', initials: 'MI', color: '#0369a1', headline: 'Host, The Craft Pod', time: '7h',
+            text: "Would you come on our podcast to talk craft vs tools? Your take on taste would make a great episode." },
+        ];
+        const COMMENTS_2 = [
+          { id: '301', name: 'Neha Gupta', initials: 'NG', color: '#9d174d', headline: 'Design Lead', time: '1d',
+            text: 'Agree, half of ours is never used.' },
+        ];
+
+        let submits = 0;
+        let likes = 0;
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+        function commentHTML(c, activity, isReply) {
+          const replies = (c.replies || []).map((r) => commentHTML(r, activity, true)).join('');
+          const avatar = `<span class="mock-avatar${isReply ? ' mock-avatar--sm' : ''}" style="background:${c.color}">${esc(c.initials)}</span>`;
+          const badge = c.author ? '<span class="mock-author-badge">Author</span>' : '';
+          if (c.legacy) {
+            return `<article class="comments-comment-item">${avatar}
+              <div class="mock-bubble">
+                <div class="comments-post-meta">
+                  <a class="comments-post-meta__profile-link" href="#">
+                    <span class="comments-post-meta__name-text"><span aria-hidden="true">${esc(c.name)}</span><span class="visually-hidden">View ${esc(c.name)}’s profile</span></span>
+                    <span class="comments-post-meta__headline">${esc(c.headline)}</span>
+                  </a>
+                  <time>${esc(c.time)}</time>
+                </div>
+                <div class="comments-comment-item-content-body"><span class="comments-comment-item__main-content" dir="ltr">${esc(c.text)}</span></div>
+              </div>
+              <div class="comments-comment-social-bar">
+                <button type="button" class="mock-like" aria-label="React Like to ${esc(c.name)}’s comment">Like</button>
+                <span class="mock-muted">|</span>
+                <button type="button" class="mock-reply">Reply</button>
+              </div>
+            </article>`;
+          }
+          return `<article class="comments-comment-entity${isReply ? ' comments-comment-entity--reply' : ''}" data-id="urn:li:comment:(activity:${activity},${c.id})">${avatar}
+            <div class="mock-bubble">
+              <div class="comments-comment-meta__container">
+                <div class="comments-comment-meta__description-container">
+                  <a class="comments-comment-meta__description" href="#">
+                    <h3 class="comments-comment-meta__description-title">${esc(c.name)}${badge}</h3>
+                    <div class="comments-comment-meta__description-subtitle">${esc(c.headline)}</div>
+                  </a>
+                </div>
+                <time class="comments-comment-meta__data">${esc(c.time)}</time>
+              </div>
+              <div class="comments-comment-entity__content">
+                <span class="comments-comment-item__main-content" dir="ltr"><div class="update-components-text"><span dir="ltr">${esc(c.text)}</span></div></span>
+              </div>
+            </div>
+            <div class="comments-comment-social-bar--cr">
+              <button type="button" class="comments-comment-social-bar__like-action-button mock-like" aria-label="React Like to ${esc(c.name)}’s comment">Like</button>
+              <span class="mock-muted">|</span>
+              <button type="button" class="comments-comment-social-bar__reply-action-button--cr mock-reply" aria-label="Reply to ${esc(c.name)}’s comment">Reply</button>
+            </div>
+            ${!isReply ? `<div class="comments-replies-list">${replies}</div>` : ''}
+          </article>`;
+        }
+
+        function render(listId, comments, activity) {
+          $(listId).insertAdjacentHTML('beforeend', comments.map((c) => commentHTML(c, activity, false)).join(''));
+        }
+
+        render('comments-1', COMMENTS_1, '7300000000000000001');
+        render('comments-2', COMMENTS_2, '7300000000000000002');
+
+        // "Load more comments": LinkedIn adds more comments after a short delay.
+        $('load-more-1').addEventListener('click', (e) => {
+          e.currentTarget.textContent = 'Loading…';
+          setTimeout(() => {
+            render('comments-1', MORE_1, '7300000000000000001');
+            $('load-more-1').remove();
+          }, 400);
+        });
+
+        function topComment(el) {
+          let top = el.closest('article');
+          while (top && top.parentElement.closest('article')) top = top.parentElement.closest('article');
+          return top;
+        }
+
+        function nameOf(article) {
+          const n = article.querySelector('.comments-comment-meta__description-title, .comments-post-meta__name-text [aria-hidden="true"]');
+          return n ? n.childNodes[0].textContent.trim() : '';
+        }
+
+        // Clicking a comment's "Reply" opens a Quill-like reply box inside the top-level comment.
+        document.addEventListener('click', (e) => {
+          const replyBtn = e.target.closest('.mock-reply');
+          if (replyBtn) {
+            const article = replyBtn.closest('article');
+            const top = topComment(article);
+            let box = top.querySelector(':scope > .comments-comment-box--reply');
+            if (!box) {
+              top.insertAdjacentHTML('beforeend', `<div class="comments-comment-box comments-comment-box--reply">
+                <form class="comments-comment-box__form">
+                  <div class="comments-comment-texteditor"><div class="editor-container"><div class="ql-container">
+                    <div class="ql-editor ql-blank" contenteditable="true" role="textbox" aria-multiline="true"
+                      aria-label="Text editor for creating content" data-placeholder="Add a reply…" aria-placeholder="Add a reply…"><p><br></p></div>
+                  </div></div></div>
+                  <div class="mock-form-row">
+                    <span class="mock-registered">LinkedIn sees: 0 characters</span>
+                    <button type="submit" class="comments-comment-box__submit-button--cr artdeco-button" disabled>Reply</button>
+                  </div>
+                </form>
+              </div>`);
+              box = top.querySelector(':scope > .comments-comment-box--reply');
+            }
+            const editor = box.querySelector('.ql-editor');
+            // Replying to a reply: LinkedIn pre-fills an @mention of that person.
+            if (article !== top) {
+              const name = nameOf(article);
+              editor.innerHTML = `<p><a class="ql-mention" href="#" data-entity-urn="urn:li:fsd_profile:demo" contenteditable="false" spellcheck="false">${esc(name)}</a>&nbsp;</p>`;
+              editor.classList.remove('ql-blank');
+            }
+            setTimeout(() => {
+              editor.focus();
+              const r = document.createRange();
+              r.selectNodeContents(editor);
+              r.collapse(false);
+              getSelection().removeAllRanges();
+              getSelection().addRange(r);
+              update(editor);
+            }, 120);
+            return;
+          }
+          if (e.target.closest('.mock-like, .mock-like-post')) {
+            likes += 1;
+            $('mock-likes').textContent = likes;
+            e.target.closest('button').textContent = 'Liked';
+          }
+        });
+
+        // Quill-like: LinkedIn only "sees" text that arrives through input/paste events.
+        function update(editor) {
+          const text = editor.innerText.replace(/ /g, ' ').trim();
+          editor.classList.toggle('ql-blank', !text);
+          const form = editor.closest('form');
+          const status = form && form.querySelector('.mock-registered');
+          if (status) status.textContent = `LinkedIn sees: ${text.length} characters`;
+          const submit = form && form.querySelector('[type="submit"]');
+          if (submit) submit.disabled = !text;
+        }
+        document.addEventListener('input', (e) => {
+          if (e.target.classList && e.target.classList.contains('ql-editor')) update(e.target);
+        });
+        document.addEventListener('paste', (e) => {
+          const editor = e.target.closest && e.target.closest('.ql-editor');
+          if (!editor) return;
+          e.preventDefault();
+          const text = e.clipboardData.getData('text/plain');
+          document.execCommand('insertText', false, text);
+        });
+
+        // Submitting (only ever by YOU) appends your reply to the thread.
+        document.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const form = e.target;
+          const editor = form.querySelector('.ql-editor');
+          const text = editor.innerText.replace(/ /g, ' ').trim();
+          if (!text) return;
+          submits += 1;
+          $('mock-submits').textContent = submits;
+          const top = form.closest('article');
+          const list = top && top.querySelector('.comments-replies-list');
+          if (list) {
+            list.insertAdjacentHTML('beforeend', commentHTML({
+              id: String(900 + submits), name: 'Shahran Ahmed', initials: 'SA', color: '#111',
+              headline: 'Co-Founder & Creative Director, Create Something Beyond', time: 'now', author: true, text,
+            }, '7300000000000000001', true));
+          }
+          editor.innerHTML = '<p><br></p>';
+          update(editor);
+        });
+
+        $('mock-dark').addEventListener('change', (e) => {
+          document.documentElement.classList.toggle('theme--dark', e.target.checked);
+          document.documentElement.classList.toggle('theme--light', !e.target.checked);
+        });
+        for (const id of ['mock-only-mine', 'mock-debug', 'mock-profile']) {
+          $(id).addEventListener(id === 'mock-profile' ? 'change' : 'input', () => window.CSB_MOCK_EXT && window.CSB_MOCK_EXT.broadcastSettings());
+        }
+      })();
+    </script>
+
+    <!-- The real extension code, plus the fake bridge. -->
+    <script src="../src/shared/defaults.js"></script>
+    <script src="../src/shared/prompt.js"></script>
+    <script src="mock-extension.js"></script>
+    <script src="../src/content/selectors.js"></script>
+    <script src="../src/content/content.js"></script>
+  </body>
+</html>
