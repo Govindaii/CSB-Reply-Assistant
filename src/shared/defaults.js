@@ -11,6 +11,17 @@
   const CSB = (root.CSB = root.CSB || {});
 
   CSB.PROVIDERS = {
+    helioroute: {
+      id: 'helioroute',
+      label: 'Helioroute',
+      // Model names are listed in your Helioroute dashboard → Models.
+      defaultModel: 'claude-sonnet-5',
+      modelsUrl: 'https://helioroute.com',
+      keysUrl: 'https://helioroute.com',
+      keyHint: 'Starts with sk-',
+      // Helioroute accepts both formats with the same key.
+      formats: ['anthropic', 'openai'],
+    },
     anthropic: {
       id: 'anthropic',
       label: 'Anthropic (Claude)',
@@ -47,14 +58,17 @@
     "I'm friendly, direct and a little playful.";
 
   CSB.DEFAULT_SETTINGS = {
-    provider: 'anthropic',
+    provider: 'helioroute',
     // API keys, one per provider. Stored only in chrome.storage.local.
-    keys: { anthropic: '', gemini: '', openai: '' },
+    keys: { helioroute: '', anthropic: '', gemini: '', openai: '' },
     models: {
+      helioroute: CSB.PROVIDERS.helioroute.defaultModel,
       anthropic: CSB.PROVIDERS.anthropic.defaultModel,
       gemini: CSB.PROVIDERS.gemini.defaultModel,
       openai: CSB.PROVIDERS.openai.defaultModel,
     },
+    // Helioroute: 'anthropic' (/v1/messages) or 'openai' (/v1/chat/completions).
+    helioFormat: 'anthropic',
     voiceProfile: CSB.DEFAULT_VOICE_PROFILE,
     tone: 'friendly', // friendly | professional | witty
     length: 'short', // short | medium

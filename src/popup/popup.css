@@ -452,3 +452,8 @@ button:focus-visible {
 .help.warn-text {
   color: var(--err);
 }
+
+/* `hidden` must win over .field's display:flex */
+.field[hidden] {
+  display: none;
+}

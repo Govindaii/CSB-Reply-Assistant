@@ -8,6 +8,9 @@
  *   output: { text, finishReason }
  *   errors: throws CSB.ProviderError { kind, status, message, detail }
  *
+ * Helioroute (helioroute.com) speaks both the Anthropic and the OpenAI
+ * format, so it reuses those two functions with a different server address.
+ *
  * kind is one of: missing_key | auth | model | rate_limit | quota |
  *                 overloaded | network | timeout | empty | bad_request | other
  *
@@ -33,7 +36,8 @@
   }
   CSB.ProviderError = ProviderError;
 
-  const LABELS = { anthropic: 'Anthropic', gemini: 'Gemini', openai: 'OpenAI' };
+  const LABELS = { anthropic: 'Anthropic', gemini: 'Gemini', openai: 'OpenAI', helioroute: 'Helioroute' };
+  const HELIOROUTE_URL = 'https://helioroute.com';
 
   /** Remove the API key from any text before it is shown or returned. */
   function redact(text, apiKey) {
@@ -150,19 +154,26 @@
 
   // ───────────────────────── Anthropic (Claude) ─────────────────────────
 
-  async function callAnthropic({ apiKey, model, system, user, maxTokens = 1500 }) {
-    const provider = 'anthropic';
+  async function callAnthropic({
+    apiKey,
+    model,
+    system,
+    user,
+    maxTokens = 1500,
+    provider = 'anthropic',
+    baseUrl = 'https://api.anthropic.com',
+  }) {
     requireKey(provider, apiKey);
     requireModel(provider, model);
 
+    const headers = { 'x-api-key': apiKey.trim(), 'anthropic-version': '2023-06-01' };
+    // Needed for calls to Anthropic itself from an extension.
+    if (provider === 'anthropic') headers['anthropic-dangerous-direct-browser-access'] = 'true';
+
     const { res, data, rawText } = await postJson(
       provider,
-      'https://api.anthropic.com/v1/messages',
-      {
-        'x-api-key': apiKey.trim(),
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
+      `${baseUrl}/v1/messages`,
+      headers,
       {
         model: model.trim(),
         max_tokens: maxTokens,
@@ -227,26 +238,39 @@
 
   // ───────────────────────── OpenAI ─────────────────────────
 
-  async function callOpenAI({ apiKey, model, system, user, maxTokens = 4000, json = false }) {
-    const provider = 'openai';
+  async function callOpenAI({
+    apiKey,
+    model,
+    system,
+    user,
+    maxTokens = 4000,
+    json = false,
+    provider = 'openai',
+    baseUrl = 'https://api.openai.com',
+  }) {
     requireKey(provider, apiKey);
     requireModel(provider, model);
 
     const m = model.trim();
+    const official = provider === 'openai';
     const body = {
       model: m,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      max_completion_tokens: maxTokens,
     };
-    if (json) body.response_format = { type: 'json_object' };
+    // OpenAI's newer models want max_completion_tokens; compatible services
+    // like Helioroute use the classic max_tokens.
+    if (official) body.max_completion_tokens = maxTokens;
+    else body.max_tokens = maxTokens;
+    // JSON mode is OpenAI-specific; the prompt asks for JSON anyway.
+    if (json && official) body.response_format = { type: 'json_object' };
     // Reasoning models think before answering; keep that short for quick replies.
-    if (/^(gpt-5|o\d)/i.test(m) && !/chat/i.test(m)) body.reasoning_effort = 'low';
+    if (official && /^(gpt-5|o\d)/i.test(m) && !/chat/i.test(m)) body.reasoning_effort = 'low';
 
     const send = () =>
-      postJson(provider, 'https://api.openai.com/v1/chat/completions', { authorization: `Bearer ${apiKey.trim()}` }, body, apiKey);
+      postJson(provider, `${baseUrl}/v1/chat/completions`, { authorization: `Bearer ${apiKey.trim()}` }, body, apiKey);
 
     let { res, data, rawText } = await send();
 
@@ -274,7 +298,15 @@
     return { text, finishReason: choice.finish_reason || '' };
   }
 
-  const CALLS = { anthropic: callAnthropic, gemini: callGemini, openai: callOpenAI };
+  // ───────────────────────── Helioroute ─────────────────────────
+
+  /** Helioroute: same key for both formats; `format` picks which one to use. */
+  async function callHelioroute(input) {
+    const opts = { ...input, provider: 'helioroute', baseUrl: HELIOROUTE_URL };
+    return input.format === 'openai' ? callOpenAI(opts) : callAnthropic(opts);
+  }
+
+  const CALLS = { anthropic: callAnthropic, gemini: callGemini, openai: callOpenAI, helioroute: callHelioroute };
 
   /** Call whichever provider is chosen. */
   async function callProvider(provider, input) {
@@ -283,5 +315,5 @@
     return fn(input);
   }
 
-  CSB.providers = { callAnthropic, callGemini, callOpenAI, callProvider, redact, LABELS };
+  CSB.providers = { callAnthropic, callGemini, callOpenAI, callHelioroute, callProvider, redact, LABELS };
 })(typeof globalThis !== 'undefined' ? globalThis : self);

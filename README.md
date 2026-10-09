@@ -56,6 +56,7 @@ with the faster "flash"/"mini" models.
 
 | Provider | Where to get a key | Where to check current model names |
 | --- | --- | --- |
+| **Helioroute** (default) | [helioroute.com](https://helioroute.com): sign in → **API keys** (or **API** → **Copy key**). Key starts with `sk-`. | Your Helioroute dashboard → **Models** |
 | **Anthropic (Claude)** | [platform.claude.com/settings/keys](https://platform.claude.com/settings/keys): sign in → **Create Key**. Add credit under Billing. Key starts with `sk-ant-`. | [Models overview](https://platform.claude.com/docs/en/models/overview) |
 | **Google (Gemini)** | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey): sign in with Google → **Create API key**. Has a free tier with limits. Key usually starts with `AIza`. | [Gemini models](https://ai.google.dev/gemini-api/docs/models) |
 | **OpenAI** | [platform.openai.com/api-keys](https://platform.openai.com/api-keys): sign in → **Create new secret key**. Add credit under Billing. Key starts with `sk-`. | [OpenAI models](https://platform.openai.com/docs/models) |
@@ -68,6 +69,7 @@ Model names change over time, so the model is a text field in settings, not hard
 
 | Provider | Default model (change it in settings) |
 | --- | --- |
+| Helioroute | `claude-sonnet-5` |
 | Anthropic | `claude-sonnet-5-5` |
 | Gemini | `gemini-3.5-flash` |
 | OpenAI | `gpt-5.4-mini` |
@@ -80,7 +82,10 @@ Faster/cheaper models ("flash", "mini", "haiku") are plenty for short replies.
 
 Click the ✦ icon in the toolbar to open settings. Everything saves automatically.
 
-1. **AI provider**: choose Anthropic, Gemini or OpenAI.
+1. **AI provider**: choose Helioroute, Anthropic, Gemini or OpenAI.
+   - For **Helioroute** there's also an **API format** choice: *Anthropic format* (`/v1/messages`, the default) or
+     *OpenAI format* (`/v1/chat/completions`). Both use the same Helioroute key. If Test connection fails with one,
+     try the other.
 2. **API key**: paste your key. (Each provider keeps its own key, so switching providers doesn't lose them.) Use
    **Show / Hide** to check it.
 3. **Model name**: leave the default, or paste a current model ID. **Default** resets it.
@@ -258,7 +263,8 @@ Do these once after installing (and after LinkedIn looks different), with **Debu
 - **What the extension never does**: post, reply, like, send, click LinkedIn's Post/Send buttons, scroll the feed on its
   own, open pages, load more comments, run in the background, use the LinkedIn API, or touch your LinkedIn login. (The
   one scroll it does is when *you* click **Show** in the Reply queue.)
-- **Permissions**: `storage`, plus access to `www.linkedin.com` and the three AI API domains only.
+- **Permissions**: `storage`, plus access to `www.linkedin.com` and the four AI API domains only (`helioroute.com`,
+  `api.anthropic.com`, `generativelanguage.googleapis.com`, `api.openai.com`).
 - The git repo ignores `.env`, key and secret files, and a test checks that no key-shaped strings are ever committed.
 
 ## 11. For developers
@@ -270,7 +276,7 @@ manifest.json
 icons/                         toolbar/extension icons
 src/shared/defaults.js         default settings, provider info (model defaults, links)
 src/shared/prompt.js           system + user prompt builder, safe JSON parser
-src/background/providers.js    callAnthropic / callGemini / callOpenAI → same { text, finishReason } shape + error mapping
+src/background/providers.js    callAnthropic / callGemini / callOpenAI / callHelioroute → same { text, finishReason } shape + error mapping
 src/background/service-worker.js  message handlers: generate, testConnection, settings, ✓ marks; only place AI is called
 src/content/selectors.js       ALL LinkedIn DOM selectors (with fallbacks) + finder helpers
 src/content/content.js         observer, ✦ buttons, panel, insertion, Alt+R, debug mode, reply queue

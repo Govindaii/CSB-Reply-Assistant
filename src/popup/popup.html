@@ -24,10 +24,20 @@
           <label class="field">
             <span class="label">Provider</span>
             <select id="provider">
+              <option value="helioroute">Helioroute</option>
               <option value="anthropic">Anthropic (Claude)</option>
               <option value="gemini">Google (Gemini)</option>
               <option value="openai">OpenAI</option>
             </select>
+          </label>
+
+          <label class="field" id="formatField" hidden>
+            <span class="label">API format</span>
+            <select id="helioFormat">
+              <option value="anthropic">Anthropic format (/v1/messages)</option>
+              <option value="openai">OpenAI format (/v1/chat/completions)</option>
+            </select>
+            <span class="help">Both use the same Helioroute key. If one gives an error, try the other.</span>
           </label>
 
           <label class="field">

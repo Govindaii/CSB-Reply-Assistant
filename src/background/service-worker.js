@@ -77,12 +77,14 @@ const HANDLERS = {
     const provider = msg.provider || settings.provider;
     const apiKey = msg.apiKey != null ? msg.apiKey : settings.keys[provider];
     const model = msg.model != null ? msg.model : settings.models[provider];
+    const format = msg.format || settings.helioFormat;
     const started = Date.now();
     try {
       const out = await withKeepAlive(
         CSB.providers.callProvider(provider, {
           apiKey,
           model,
+          format,
           system: 'You are a connection test. Answer with one word.',
           user: 'Reply with just: OK',
           maxTokens: 64,
@@ -120,7 +122,7 @@ const HANDLERS = {
         previousReplies: msg.previousReplies,
       });
       const out = await withKeepAlive(
-        CSB.providers.callProvider(provider, { apiKey, model, system, user, json: true })
+        CSB.providers.callProvider(provider, { apiKey, model, system, user, json: true, format: settings.helioFormat })
       );
       if (!out.text) throw emptyAnswerError(provider, out.finishReason);
 

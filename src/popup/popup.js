@@ -57,6 +57,11 @@
     $('keysLink').href = info.keysUrl;
     $('keysLink').textContent = `Get your ${info.label} key ↗`;
     $('modelsLink').href = info.modelsUrl;
+    $('modelsLink').textContent =
+      p === 'helioroute' ? 'See model names in your Helioroute dashboard → Models ↗' : 'Check current model names ↗';
+    // Only Helioroute offers a choice of API format.
+    $('formatField').hidden = !info.formats;
+    $('helioFormat').value = settings.helioFormat || 'anthropic';
     hideResult();
   }
 
@@ -87,6 +92,12 @@
     $('provider').addEventListener('change', (e) => {
       settings.provider = e.target.value;
       fillProviderFields();
+      scheduleSave();
+    });
+
+    $('helioFormat').addEventListener('change', (e) => {
+      settings.helioFormat = e.target.value;
+      hideResult();
       scheduleSave();
     });
 
@@ -179,6 +190,7 @@
         provider,
         apiKey: $('apiKey').value.trim(),
         model: $('model').value.trim(),
+        format: $('helioFormat').value,
       });
       if (res && res.ok) {
         showResult('ok', `✓ Connected to ${label} using “${res.model}” (${(res.ms / 1000).toFixed(1)}s).`);

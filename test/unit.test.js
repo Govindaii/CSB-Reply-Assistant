@@ -207,6 +207,60 @@ test('OpenAI request shape + parsing', async () => {
   assert.deepEqual(out, { text: '{"ok":3}', finishReason: 'stop' });
 });
 
+test('Helioroute, Anthropic format: /v1/messages with x-api-key', async () => {
+  const cap = {};
+  mockFetch(200, { content: [{ type: 'text', text: '{"ok":4}' }], stop_reason: 'end_turn' }, cap);
+  const out = await CSB.providers.callProvider('helioroute', { ...INPUT, model: 'claude-sonnet-5', format: 'anthropic' });
+  assert.equal(cap.url, 'https://helioroute.com/v1/messages');
+  assert.equal(cap.init.headers['x-api-key'], 'test-key-123456');
+  assert.equal(cap.init.headers['anthropic-version'], '2023-06-01');
+  assert.ok(!('anthropic-dangerous-direct-browser-access' in cap.init.headers));
+  assert.equal(cap.body.model, 'claude-sonnet-5');
+  assert.equal(cap.body.system, 'SYS');
+  assert.equal(cap.body.max_tokens, 1500);
+  assert.deepEqual(out, { text: '{"ok":4}', finishReason: 'end_turn' });
+});
+
+test('Helioroute defaults to the Anthropic format', async () => {
+  const cap = {};
+  mockFetch(200, { content: [{ type: 'text', text: 'ok' }] }, cap);
+  await CSB.providers.callProvider('helioroute', { ...INPUT, model: 'claude-sonnet-5' });
+  assert.equal(cap.url, 'https://helioroute.com/v1/messages');
+});
+
+test('Helioroute, OpenAI format: /v1/chat/completions with Bearer and max_tokens', async () => {
+  const cap = {};
+  mockFetch(200, { choices: [{ message: { content: '{"ok":5}' }, finish_reason: 'stop' }] }, cap);
+  const out = await CSB.providers.callProvider('helioroute', { ...INPUT, model: 'claude-sonnet-5', format: 'openai' });
+  assert.equal(cap.url, 'https://helioroute.com/v1/chat/completions');
+  assert.equal(cap.init.headers.authorization, 'Bearer test-key-123456');
+  assert.equal(cap.body.max_tokens, 4000);
+  assert.ok(!('max_completion_tokens' in cap.body));
+  assert.ok(!('response_format' in cap.body));
+  assert.ok(!('reasoning_effort' in cap.body));
+  assert.deepEqual(out, { text: '{"ok":5}', finishReason: 'stop' });
+});
+
+test('Helioroute errors are labelled Helioroute', async () => {
+  await expectKind(() => CSB.providers.callProvider('helioroute', { ...INPUT, apiKey: '' }), 'missing_key', /Helioroute/);
+  mockFetch(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }, {});
+  await expectKind(() => CSB.providers.callProvider('helioroute', INPUT), 'auth', /Helioroute rejected/);
+  mockFetch(404, { type: 'error', error: { type: 'not_found_error', message: 'model: nope' } }, {});
+  await expectKind(() => CSB.providers.callProvider('helioroute', { ...INPUT, model: 'nope' }), 'model', /Helioroute/);
+});
+
+test('settings default to Helioroute and keep older saved settings working', () => {
+  assert.equal(CSB.DEFAULT_SETTINGS.provider, 'helioroute');
+  assert.equal(CSB.DEFAULT_SETTINGS.models.helioroute, 'claude-sonnet-5');
+  assert.equal(CSB.DEFAULT_SETTINGS.helioFormat, 'anthropic');
+  // Settings saved before Helioroute existed get the new fields filled in.
+  const old = CSB.mergeSettings({ provider: 'anthropic', keys: { anthropic: 'k' }, models: { anthropic: 'm' } });
+  assert.equal(old.provider, 'anthropic');
+  assert.equal(old.keys.helioroute, '');
+  assert.equal(old.models.helioroute, 'claude-sonnet-5');
+  assert.equal(old.keys.anthropic, 'k');
+});
+
 test('OpenAI retries without an unsupported optional parameter', async () => {
   const bodies = [];
   let n = 0;
@@ -273,7 +327,8 @@ test('error mapping: missing key, auth, model, rate limit, quota, overloaded, ne
 // ───────────────────────── repo safety ─────────────────────────
 
 test('no API keys or secrets are committed in the repo', () => {
-  const patterns = [/sk-ant-[A-Za-z0-9_-]{20,}/, /AIza[0-9A-Za-z_-]{30,}/, /\bsk-(proj-)?[A-Za-z0-9_-]{32,}/];
+  // Anthropic, Gemini, OpenAI and Helioroute-style (sk- + 20 or more letters/digits) keys.
+  const patterns = [/sk-ant-[A-Za-z0-9_-]{20,}/, /AIza[0-9A-Za-z_-]{30,}/, /\bsk-(proj-)?[A-Za-z0-9_-]{32,}/, /\bsk-[A-Za-z0-9]{20,}/];
   const skip = new Set(['.git', 'node_modules']);
   const hits = [];
   (function walk(dir) {
@@ -290,13 +345,14 @@ test('no API keys or secrets are committed in the repo', () => {
   assert.deepEqual(hits, []);
 });
 
-test('manifest only asks for LinkedIn and the three AI domains', () => {
+test('manifest only asks for LinkedIn and the four AI domains', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual(manifest.host_permissions.sort(), [
     'https://api.anthropic.com/*',
     'https://api.openai.com/*',
     'https://generativelanguage.googleapis.com/*',
+    'https://helioroute.com/*',
     'https://www.linkedin.com/*',
   ]);
   assert.deepEqual(manifest.permissions, ['storage']);
